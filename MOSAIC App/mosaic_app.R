@@ -9,7 +9,7 @@ rm(list=ls())
 
 # version information ----
 
-vers_mosaic <- "0.1"
+vers_mosaic <- "0.2"
 
 # load libraries and outside functions ----
 
@@ -18,6 +18,7 @@ options(shiny.maxRequestSize=150*1024^2)
 
 # libraries for overall
 library(shiny)
+library(rstudioapi)
 
 # libraries for running mosaic
 library(minpack.lm)
@@ -25,11 +26,9 @@ library(doParallel)
 library(foreach)
 library(iterators)
 library(doSNOW)
-library(ggplot2)
 library(dplyr)
 
 # libraries for visualization
-
 library(ggplot2)
 library(VennDiagram)
 library(ggplotify)
@@ -67,7 +66,6 @@ param_map <- list(
   "Linear" = lin_param_n#,
 )
 
-
 # color information
 rna_blue_high <- "#268beb"
 pro_red_high <- "#d61e1e"
@@ -75,27 +73,35 @@ pro_red_high <- "#d61e1e"
 rna_blue_low <- "#9ebfde"
 pro_red_low <- "#d49d9d"
 
+# making a function to create automatic palettes for rna and protein viz
 rna_col_func <- colorRampPalette(c(rna_blue_low, rna_blue_high))
 pro_col_func <- colorRampPalette(c(pro_red_low, pro_red_high))
 
 # auxiliary functions -----
 
 # function to get the order for the heat map
-# omic_type is the full name of the omic (RNA, Protein)
+# inputs:
+# fin_sub: subset of final.df, result of running MOSAIC
+# omic_type: full name of the omic, RNA or Protein
+# outputs:
+# vector, gene names in order for heat map
 order_heat_map <- function(fin_sub, omic_type){
   # we are building up to final order
   name_ord <- c()
   
   # take the echo ones first
+  # get all the echo-type models
   sub_df <- fin_sub[fin_sub[,paste0("Best_Model_",omic_type)] %in% c("ECHO","ECHO Joint","ECHO Linear", "ECHO Linear Joint"),]
   if (nrow(sub_df) > 0){
+    # order by hours shifted
     name_ord <- c(name_ord, sub_df$Gene_Name[order(sub_df[,paste0("Hours_Shifted_",omic_type)])])
   }
   
   # and now we order the exponential
   sub_df <- fin_sub[fin_sub[,paste0("Best_Model_",omic_type)]  == "Exponential",]
   if (nrow(sub_df) > 0){
-    # order by growth rate, then amplitude
+    # subset order by growth rate, then amplitude (both negative to positive)
+    # get all the subsets of growth rate and amplitudes
     ord_list <- list(
       "g_neg_a_neg" = sub_df[,paste0("Growth_Rate_",omic_type)] < 0 & sub_df[,paste0("Initial_Amplitude_",omic_type)] < 0 & !is.na(sub_df[,paste0("Growth_Rate_",omic_type)]),
       "g_neg_a_pos" = sub_df[,paste0("Growth_Rate_",omic_type)] < 0 & sub_df[,paste0("Initial_Amplitude_",omic_type)] >= 0 & !is.na(sub_df[,paste0("Growth_Rate_",omic_type)]),
@@ -103,6 +109,7 @@ order_heat_map <- function(fin_sub, omic_type){
       "g_pos_a_pos" = sub_df[,paste0("Growth_Rate_",omic_type)] >= 0 & sub_df[,paste0("Initial_Amplitude_",omic_type)] >= 0 & !is.na(sub_df[,paste0("Growth_Rate_",omic_type)])
     )
     
+    # order each of the taken subsets by growth rates
     for (i in 1:length(ord_list)){
       sub_name <- sub_df$Gene_Name[ord_list[[i]]]
       name_ord <- c(name_ord, sub_name[order(sub_df[ord_list[[i]],paste0("Growth_Rate_",omic_type)])])
@@ -112,6 +119,7 @@ order_heat_map <- function(fin_sub, omic_type){
   # and now we order the linear
   sub_df <- fin_sub[fin_sub[,paste0("Best_Model_",omic_type)]  == "Linear",]
   if (nrow(sub_df) > 0){
+    # order by slope
     name_ord <- c(name_ord, sub_df$Gene_Name[order(sub_df[,paste0("Slope_",omic_type)])])
   }
   
@@ -121,6 +129,12 @@ order_heat_map <- function(fin_sub, omic_type){
   return(rev(match(name_ord, fin_sub$Gene_Name)))
 }
 
+# function to get the order for the heat map comparison
+# inputs:
+# fin_sub: subset of final.df, result of running MOSAIC
+# omic_type: full name of the omic, RNA or Protein
+# outputs:
+# vector, gene names in order for heat map comparison
 order_heat_map_comparison <- function(fin_sub, omic_type){
   # we are building up to final order
   name_ord <- c()
@@ -131,6 +145,7 @@ order_heat_map_comparison <- function(fin_sub, omic_type){
   # take the echo ones first
   sub_df <- fin_sub[fin_sub[,paste0("Best_Model_",omic_type)] %in% c("ECHO","ECHO Joint","ECHO Linear", "ECHO Linear Joint") & !which_na,]
   if (nrow(sub_df) > 0){
+    # order by hours shifted
     name_ord <- c(name_ord, sub_df$Gene_Name[order(sub_df[,paste0("Hours_Shifted_",omic_type)])])
   }
   
@@ -145,6 +160,7 @@ order_heat_map_comparison <- function(fin_sub, omic_type){
       "g_pos_a_pos" = sub_df[,paste0("Growth_Rate_",omic_type)] >= 0 & sub_df[,paste0("Initial_Amplitude_",omic_type)] >= 0 & !is.na(sub_df[,paste0("Growth_Rate_",omic_type)])
     )
     
+    # order each taken subset by growth rate
     for (i in 1:length(ord_list)){
       sub_name <- sub_df$Gene_Name[ord_list[[i]]]
       name_ord <- c(name_ord, sub_name[order(sub_df[ord_list[[i]],paste0("Growth_Rate_",omic_type)])])
@@ -154,6 +170,7 @@ order_heat_map_comparison <- function(fin_sub, omic_type){
   # and now we order the linear
   sub_df <- fin_sub[fin_sub[,paste0("Best_Model_",omic_type)] == "Linear" & !which_na,]
   if (nrow(sub_df) > 0){
+    # order by slope
     name_ord <- c(name_ord, sub_df$Gene_Name[order(sub_df[,paste0("Slope_",omic_type)])])
   }
   
@@ -169,6 +186,15 @@ order_heat_map_comparison <- function(fin_sub, omic_type){
   return(name_ord)
 }
 
+# function to make the heat map matrix to visualize
+# inputs:
+# dat: expression data
+# ord: order for data
+# num_reps: number of replicates
+# heat_subset_rep: "all", or the number of the replicate you want to viz
+# timen: time points
+# outputs:
+# heat map matrix, to be visualized
 make_hm_matrix <- function(dat, ord, num_reps, heat_subset_rep, timen){
   
   #get matrix of just the relative expression over time
@@ -219,10 +245,19 @@ make_hm_matrix <- function(dat, ord, num_reps, heat_subset_rep, timen){
 }
 
 # function to make the heat map plot
-# omic_type is the full name of the omic (RNA, Protein)
+# inputs:
+# hm_mat: heat map matrix
+# omic_type: the full name of the omic (RNA, Protein)
+# subset_look: string, subset we're visualizing
+# if_comp: if a comparison heat map
+# comp_y: vector, labels for y axis
+# output:
+# heat map plot
 make_hm_plot <- function(hm_mat, omic_type, subset_look, if_comp = F, comp_y = c()){
+  # melt for ease with ggplot
   tmp <- melt(t(hm_mat))
   
+  # make heat map plot
   p <- ggplot(tmp, aes(Var1, factor(Var2, levels = unique(Var2)), fill = value))+
     geom_tile()+
     scale_fill_gradientn("", limits = c(-1,1), breaks = c(-1,0,1),colors = blue2yellow(256), na.value = "white")+
@@ -238,6 +273,7 @@ make_hm_plot <- function(hm_mat, omic_type, subset_look, if_comp = F, comp_y = c
     ggtitle(paste0(omic_type, ", ", subset_look, " Subset"))+
     NULL
   
+  # if it's not a heat map comparison plot
   if (!if_comp){
     p <- p +
       theme(
@@ -245,7 +281,7 @@ make_hm_plot <- function(hm_mat, omic_type, subset_look, if_comp = F, comp_y = c
         axis.text = element_blank(),
       ) +
       NULL
-  } else {
+  } else { # heat map comparison plot
     p <- p +
       theme(
         axis.ticks.x = element_blank(),
@@ -267,12 +303,14 @@ ui <- navbarPage(
   tabPanel("Finding Trends", {
     sidebarLayout(
       sidebarPanel(
+        # instructions
         tags$p(HTML("<b>Note: Instructions can be found in the 'Instructions' tab.</b> Required fields, with the exception of example data, are marked with *. Required fields in all cases are marked with **.")),
         
         tags$p(paste("MOSAIC Version:", vers_mosaic)),
         
         hr(),
         
+        # upload data
         div(style="display: inline-block; vertical-align: center; width: 250px;",
             fileInput("rna", "Upload RNA Data File (.csv) *", accept=c(".csv"), width = "250px")),
         
@@ -289,6 +327,7 @@ ui <- navbarPage(
         
         checkboxInput("use_example", "Use Example?", value = FALSE, width = NULL),
         
+        # dataset properties
         textInput("title", "Project Title **"),
         
         div(style="display: inline-block; width: 80px;",
@@ -326,7 +365,7 @@ ui <- navbarPage(
             actionButton("limit_help", icon("question", lib="font-awesome"))),
         uiOutput("Help_limit"),
         
-        
+        # preprocessing and preference choices
         div(style="display: inline-block;",
             checkboxInput("smooth", "Smooth data?", value = FALSE, width = NULL)),
         div(style="display: inline-block; vertical-align:top;  width: 20px;",
@@ -370,6 +409,7 @@ ui <- navbarPage(
       ),
       mainPanel(
         tabsetPanel(
+          # welcome text
           tabPanel("Welcome to MOSAIC",
             verbatimTextOutput("finish"),
             HTML('<center><img src="MOSAIC_Gene_Expression_Plot.png" style="width:500px"></center><br>'),
@@ -391,6 +431,8 @@ ui <- navbarPage(
             tags$br(),tags$br(),
             tags$p(paste("MOSAIC Version", vers_mosaic))
           ),
+          
+          # results instructions
           tabPanel("Interpreting MOSAIC Result Files",
             tags$h4(HTML("<b><u>Interpreting MOSAIC Result Files</b></u>")),
             tags$p("Once you run MOSAIC, there are two results files available for download: a MOSAIC CSV and an .RData file (used for the Visualizations tab). Below, you can find an explanation of the contents of the CSV file. You can check our published paper for more in-depth information on these parameters."),
@@ -431,6 +473,7 @@ ui <- navbarPage(
         div(class="header", checked=NA,
             tags$b("Required fields in all cases are marked with *.")),
         
+        # upload data and specify data
         fileInput("viz_file","Upload MOSAIC Visualization File (.RData) *", accept=c(".RData", ".Rds")),
         
         div(style="display: inline-block; width: 90px;",
@@ -441,6 +484,7 @@ ui <- navbarPage(
             actionButton("time_range_help", icon("question", lib="font-awesome"))),
         uiOutput("Help_time_range"),
         
+        # plotting preferences
         selectInput("om_type",
                     "How should omics data types be displayed in plots?",
                     c("Both, Overlaid", "Both, Side-by-Side", "Only RNA", "Only Protein")),
@@ -547,6 +591,7 @@ ui <- navbarPage(
       ),
       mainPanel(
         tabsetPanel(
+          # visualization tab
           tabPanel("Visualization", 
             uiOutput("plot_ui"),
             tags$br(),
@@ -554,6 +599,8 @@ ui <- navbarPage(
                      uiOutput("viz_text")
             )
           ),
+          
+          # gene list tab
           tabPanel("Gene List",
             tabsetPanel(
               tabPanel("Both, Side-by-Side", 
@@ -567,11 +614,15 @@ ui <- navbarPage(
               tabPanel("Only Protein", downloadButton('download_pro', 'Download Gene List'), dataTableOutput("gene_list_pro"))
             )
           ),
+          
+          # user inputs tab
           tabPanel("User Inputs",
             fluidRow(style = "border: 1px #e3e3e3; border-style: solid; border-radius: 10px; background: #f5f5f5; padding: 10px;",
                     uiOutput("user_input_text")
             )
           ),
+          
+          # visualization instructions
           tabPanel("Instructions",
             tags$h4(HTML("<b><u><center>Instructions:</center></b></u>")),
             tags$p("Once you have run your data through the Finding Trends part of MOSAIC, you can visualize and explore your results using the .RData file available for download after your run. To update visualizations or gene lists, select options from each of the drop down menus to the left and press Update Visualization. There are several types of visualizations/explorations currently available:"),
@@ -711,6 +762,7 @@ server <- function(input, output, session) {
       # functions for mosaic
       source("mosaic_master.R", local = T)
       
+      # use example data?
       if (input$use_example){
         # load data
         rna <- read.csv("mosaic_example_data_rna.csv", header = T, stringsAsFactors = F)
@@ -754,7 +806,6 @@ server <- function(input, output, session) {
       genes_rna <- genes_rna[order(genes_rna[,1]),]
       genes_pro <- genes_pro[order(genes_pro[,1]),]
       
-      # TEST WITH ONE ROW!! you will have to fix it
       if (nrow(genes_rna)==1){
         # creating a constant row and adding it to genes
         add_row <- data.frame(matrix(0L, 1, ncol(genes_rna)))
@@ -899,16 +950,15 @@ server <- function(input, output, session) {
       #     print(current_gene)
       #   }
       # 
-      #   fin[[current_gene]] <- multi_pipeline(current_gene, timen, resol, num_reps, final_df[current_gene,], genes_rna, genes_pro)
+      #   fin[[current_gene]] <- multi_pipeline(current_gene, timen, resol, num_reps, final_df[current_gene,], genes_rna, genes_pro, rem_unexpr_combine, harm_cut, over_cut)
       # }
       
       # as.vector(lsf.str()) gets all the function names in the global environment
       fin <- suppressWarnings(
         foreach (current_gene=1:nrow(genes_rna), .export = as.vector(lsf.str()), .packages=c('minpack.lm'),.options.snow = opts) %dopar% {
-          multi_pipeline(current_gene, timen, resol, num_reps, final_df[current_gene,], genes_rna, genes_pro, rem_unexpr_combine)
+          multi_pipeline(current_gene, timen, resol, num_reps, final_df[current_gene,], genes_rna, genes_pro, rem_unexpr_combine, harm_cut, over_cut)
         }
       )
-      print(fin)
       final_df <- plyr::rbind.fill(lapply(fin, `[[`, 1)) 
       # AIC df is not included in forward facing app
       # aic_rna <- dplyr::bind_rows(lapply(fin, `[[`, 2))
@@ -969,6 +1019,7 @@ server <- function(input, output, session) {
         "v_num"= vers_mosaic
       )
       
+      # download mosaic csv
       output$downloadMOSAIC <- downloadHandler(
         filename = paste0(input$title,"_MOSAIC.csv"),
         content = function(file){
@@ -976,6 +1027,7 @@ server <- function(input, output, session) {
         }
       )
       
+      # download mosaic
       output$downloadViz <- downloadHandler(
         filename = paste0(input$title,"_MOSAIC_Visualization.RData"),
         content = function(file){
@@ -1141,7 +1193,7 @@ server <- function(input, output, session) {
       "Harmonic ECHO Linear All" = sig_pro & (harmonic_echo_lin_pro),
       "No Deviation"  = rep(F, nrow(final_df)) # TODO: NEED TO FIX
     )
-    # you also need to subset by PERIOD
+
     # then: subset to periods specified (if specified)
     criteria_start_rna <- criteria_start_pro <-
       criteria_end_rna <- criteria_end_pro <- rep(T, nrow(final_df))
@@ -1170,16 +1222,19 @@ server <- function(input, output, session) {
                                      (criteria_start_rna | criteria_start_pro) &
                                      (criteria_end_rna | criteria_end_pro),1:33]
     
+    # only true in rna
     gene_list_rna <- final_df[(rna_sub_list[[input$subset_look]]) & 
                                 (criteria_start_rna) &
                                 (criteria_end_pro),
                               c(1, which(grepl("RNA",colnames(final_df)[1:33])) )]
     
+    # only true in protein
     gene_list_pro <- final_df[(pro_sub_list[[input$subset_look]]) & 
                                 (criteria_start_pro) &
                                 (criteria_end_pro),
                               c(1, which(grepl("Protein",colnames(final_df)[1:33])) )]
     
+    # render specified tables
     output$gene_list_overlaid <- renderDataTable({
       gene_list_overlaid
     }, options = list(scrollX = T))
@@ -1192,7 +1247,7 @@ server <- function(input, output, session) {
       gene_list_pro
     }, options = list(scrollX = T))
     
-    # TODO: FIX THIS
+    # download gene lists
     output$download_rna_side <- output$download_rna <- downloadHandler(
       filename = function() { paste("Gene_List_RNA_", input$subset_look, '_Subset_',input$om_type,'_MOSAIC.csv', sep='') },
       content = function(file) {
@@ -1215,6 +1270,7 @@ server <- function(input, output, session) {
     )
     # User Inputs ----
     
+    # render user inputs for file
     output$user_input_text <- renderUI({
       HTML(
         paste0(
@@ -1248,7 +1304,7 @@ server <- function(input, output, session) {
       
       # visualization, above
       
-      # venn diagram comparing rna and protein
+      # venn diagram comparing rna and protein, only significant
       tp1 <- as.ggplot(grid.arrange(as.ggplot(grobTree(
         draw.pairwise.venn(area1 = sum(sig_rna),
                            area2 = sum(sig_pro),
@@ -1267,6 +1323,7 @@ server <- function(input, output, session) {
                            )
       )), top = textGrob("Significant Trends in RNA and Protein", gp=gpar(fontface="bold"))))
       
+      # venn diagram comparing rna and protein, oscillatory
       tp2 <- as.ggplot(grid.arrange(as.ggplot(grobTree(
         draw.pairwise.venn(area1 = sum(sig_rna & osc_rna),
                            area2 = sum(sig_pro & osc_pro),
@@ -1285,6 +1342,7 @@ server <- function(input, output, session) {
         )
       )), top = textGrob("Significant Oscillatory Trends in RNA and Protein", gp=gpar(fontface="bold"))))
       
+      # put the venn diagrams together to make the first row of the plot
       tp <- as.ggplot(grid.arrange(tp1,tp2, ncol = 2))
       
       # ggplot comparing model distributions in rna and protein
@@ -1308,7 +1366,8 @@ server <- function(input, output, session) {
       col_pal <- c(rna_col_func(n_mod), pro_col_func(n_mod))
       names(col_pal) <- gg.df$model_type
       
-      # create comparison plot
+      # create comparison plot, stacked bar -- x axis is percentage, counts are annotated
+      # makes for a distribution of models
       bp <- ggplot(gg.df, aes(x = data, y= perc, fill = factor(model_type, levels = unique(model_type)), group = data))+
         geom_bar(stat = "identity")+
         geom_text(data = subset(gg.df, perc > 1),  aes(label = paste0(model_name, " (", count, ")")), size = 5, position = position_stack(vjust = .5), angle = 90)+
@@ -1330,10 +1389,10 @@ server <- function(input, output, session) {
         scale_x_discrete(expand = c(0,0))+
         NULL
       
+      # make the final plot, venn diagrams on top, comparison bar plot on the bottom
       fin_plot <- as.ggplot(grid.arrange(tp,bp, heights = c(10,15)))
       
-      
-      # text, below
+      # text, below: counts of different categories
       fin_text <- 
         HTML(
           paste0(
@@ -1369,7 +1428,7 @@ server <- function(input, output, session) {
             "<b>&emsp;&emsp;&emsp;      - Harmonic: </b>",sum(sig_pro & harmonic_echo_lin_pro),"<br>",
             "<b>&emsp;&emsp;&emsp;      - Forced: </b>",sum(sig_pro & forced_echo_lin_pro),"<br>",
             "<br>",
-            "<b>Comparing RNA and Protein: </b><br>",
+            "<b>Comparing Significant RNA and Protein: </b><br>",
             "<b>- Only RNA: </b>",sum(only_rna),"<br>",
             "<b>- Only Protein: </b>",sum(only_pro),"<br>",
             "<b>- Both RNA and Protein: </b>",sum(rna_and_pro),"<br>",
@@ -1381,10 +1440,12 @@ server <- function(input, output, session) {
       # Gene Expression Plot ----
       
       if (input$gene_name == "" | !input$gene_name %in% final_df$Gene_Name){
+        # if the gene name specified isn't in our dataset, don't plot/write anything
         fin_plot <- ggplot()+theme_bw()
         fin_text <- HTML("")
       } else {
         # basically we want to get the RNA and protein and plot the fit and the ribbon
+        # get the logical of which row corresponds to the gene name
         gene_log <- final_df$Gene_Name == input$gene_name
         
         # form the data frame
@@ -1398,6 +1459,7 @@ server <- function(input, output, session) {
           "timen" = timen
         )
         
+        # colors for lines
         col_vect <- c(
           "Original RNA" = rna_blue_low,
           "Original Protein" = pro_red_low,
@@ -1405,10 +1467,11 @@ server <- function(input, output, session) {
           "Fit Protein" = pro_red_high
         )
         # add replicate colors
+        # add two to provide more variability
         rna_rep_col <- rna_col_func(num_reps+2)
         pro_rep_col <- pro_col_func(num_reps+2)
         
-        # add replicates
+        # add replicates to df and color scale
         for (i in 1:num_reps){
           gg.df[,paste0("rna_rep",i)] <- as.numeric(dat_rna[gene_log,seq(i, ncol(dat_rna), by=num_reps)])
           gg.df[,paste0("pro_rep",i)] <- as.numeric(dat_pro[gene_log,seq(i, ncol(dat_pro), by=num_reps)])
@@ -1417,10 +1480,11 @@ server <- function(input, output, session) {
           col_vect[paste0("Protein, Replicate ",i)] <- pro_rep_col[i+1]
         }
         
+        # name breaks for the colors in the legend
         col_name_breaks <- c(names(col_vect)[grepl("RNA", names(col_vect), fixed = T)],
                              names(col_vect)[grepl("Protein", names(col_vect), fixed = T)])
         
-        
+        # base plot, filling in general information
         p <- ggplot(gg.df, aes(x = timen))+
           scale_fill_manual("", values = col_vect, breaks = col_name_breaks)+
           scale_color_manual("", values = col_vect, breaks = col_name_breaks)+
@@ -1437,9 +1501,11 @@ server <- function(input, output, session) {
           NULL
         
         if (input$om_type != "Both, Overlaid"){
+          # if the plots are separate in some way for each omics type
           p_rna <- p_pro <- p 
           
           if (num_reps > 1){
+            # if there are replicates, add a ribbon to the plot
             p_rna <- p_rna +
               geom_ribbon(aes(ymax = rna_max, ymin = rna_min, fill = "Original RNA"), alpha = .5)+
               NULL
@@ -1448,6 +1514,7 @@ server <- function(input, output, session) {
               geom_ribbon(aes(ymax = pro_max, ymin = pro_min, fill = "Original Protein"), alpha = .5)+
               NULL
           } else {
+            # if there are no replicates, add just a line to the plot
             p_rna <- p_rna +
               geom_line(aes(y = rna_rep1, color = "Original RNA"))+
               NULL
@@ -1457,7 +1524,9 @@ server <- function(input, output, session) {
               NULL
           }
           
+          # if it's "gene expression w/replicates plot"
           if (grepl("Replicates", input$viz)){
+            # add a line to the plot for each replicate
             for (i in 1:num_reps){
               p_rna <- p_rna +
                 geom_line(aes_string(y = paste0("rna_rep",i), color = shQuote(paste0("RNA, Replicate ",i))))+
@@ -1469,6 +1538,7 @@ server <- function(input, output, session) {
             }
           }
           
+          # add the fitted data, for rna and protein separately
           p_rna <- p_rna +
             geom_line(aes(y = rna_fit, color = "Fit RNA"), size = 1)+
             ggtitle(paste0("RNA: ", final_df$Gene_Name[gene_log]))+
@@ -1487,6 +1557,7 @@ server <- function(input, output, session) {
             )+
             NULL
           
+          # arrange the final plot based on the view type of omics
           fin_plot <- 
             if (input$om_type == "Both, Side-by-Side"){
               as.ggplot(grid.arrange(p_rna, p_pro, ncol = 2))
@@ -1496,20 +1567,24 @@ server <- function(input, output, session) {
               p_pro
             }
         } else {
+          # otherwise, the omics types should be overlaid
           fin_plot <- p 
           
           if (num_reps > 1){
+            # if replicates, add a ribbon
             fin_plot <- fin_plot +
               geom_ribbon(aes(ymax = rna_max, ymin = rna_min, fill = "Original RNA"), alpha = .5)+
               geom_ribbon(aes(ymax = pro_max, ymin = pro_min, fill = "Original Protein"), alpha = .5)+
               NULL
           } else {
+            # if no replicates, just put the original data in a line
             fin_plot <- fin_plot +
               geom_line(aes(y = rna_rep1, color = "Original RNA"))+
               geom_line(aes(y = pro_rep1, color = "Original Protein"))+
               NULL
           }
           
+          # add the replicates to the plot, if specified
           if (grepl("Replicates", input$viz)){
             for (i in 1:num_reps){
               fin_plot <- fin_plot +
@@ -1519,6 +1594,7 @@ server <- function(input, output, session) {
             }
           }
           
+          # add the fits to the plot
           fin_plot <- fin_plot +
             geom_line(aes(y = rna_fit, color = "Fit RNA"), size = 1)+
             geom_line(aes(y = pro_fit, color = "Fit Protein"), size = 1)+
@@ -1530,10 +1606,11 @@ server <- function(input, output, session) {
             NULL
         }
         
-        # for the text below it, we put stats
+        # for the text below it, we put stats for each omics type
         text_rna <- paste0("<b>RNA Parameters:</b><br><b>- Best Model:</b> ",final_df$Best_Model_RNA[gene_log],"<br>")
         text_pro <- paste0("<b>Protein Parameters:</b><br><b>- Best Model:</b> ",final_df$Best_Model_Protein[gene_log],"<br>")
         
+        # add each parameter for each model type
         if (!final_df$Best_Model_RNA[gene_log] %in% c("ECHO Joint", "ECHO Linear Joint")){
           for (p in 1:length(param_map[[final_df$Best_Model_RNA[gene_log]]])){
             text_rna <- paste0(text_rna, "<b>- ", param_map[[final_df$Best_Model_RNA[gene_log]]][p], ":</b> ",
@@ -1555,7 +1632,7 @@ server <- function(input, output, session) {
           }
         }
         
-        # add the p_values
+        # add the p_values, for the fit of each omics type
         text_rna <- paste0(text_rna,
           "<b>- P-Value:</b> ", final_df$P_Value_RNA[gene_log], "<br>",
           "<b>- BH Adj P-Value:</b> ", final_df$BH_Adj_P_Value_RNA[gene_log], "<br>"
@@ -1565,6 +1642,7 @@ server <- function(input, output, session) {
           "<b>- BH Adj P-Value:</b> ", final_df$BH_Adj_P_Value_Protein[gene_log], "<br>"
         )
         
+        # add the joint p-value, if joint
         if (final_df$Best_Model_RNA[gene_log] %in% c("ECHO Joint", "ECHO Linear Joint")){
           text_rna <- paste0(text_rna,
             "<b>- Joint P-Value:</b> ", final_df$P_Value_Joint[gene_log], "<br>",
@@ -1576,6 +1654,7 @@ server <- function(input, output, session) {
           )
         }
         
+        # add the p-value of the slope, if it's a linear model
         if (final_df$Best_Model_RNA[gene_log] == "Linear"){
           text_rna <- paste0(
             text_rna,
@@ -1591,6 +1670,7 @@ server <- function(input, output, session) {
           )
         }
         
+        # put the text together, depending on the omics types specified in the plot
         mid_text <- 
           if (grepl("Both", input$om_type)){
             paste0(text_rna,"<br>",text_pro)
@@ -1600,6 +1680,7 @@ server <- function(input, output, session) {
             text_pro
           }
         
+        # add the gene name to the text
         fin_text <- HTML(paste0("<b><u>", final_df$Gene_Name[gene_log], ":</b></u><br><br>", mid_text))
       }
     } else if (input$viz == "Heat Map" | input$viz == "Parameter Density Graph (PDG)") {
@@ -1614,6 +1695,7 @@ server <- function(input, output, session) {
       fin_sub_pro <- final_df[pro_sub_list[[input$subset_look]] & criteria_start_pro & criteria_end_pro,]
       
       if (input$viz == "Heat Map"){
+        # get the gene order for each omics type
         ord_rna <- order_heat_map(fin_sub_rna, "RNA")
         ord_pro <- order_heat_map(fin_sub_pro, "Protein")
         
@@ -1621,14 +1703,14 @@ server <- function(input, output, session) {
         rna_map <- make_hm_matrix(rna_sub, ord_rna, num_reps, input$heat_subset_rep, timen)
         pro_map <- make_hm_matrix(pro_sub, ord_pro, num_reps, input$heat_subset_rep, timen)
         
-        # you can't have an overlaid plot for heat maps
+        # you can't have an overlaid plot for heat maps -- just side by side
         if (grepl("Both", input$om_type)){
           rna_g <- make_hm_plot(rna_map, "RNA", input$subset_look)
           pro_g <- make_hm_plot(pro_map, "Protein", input$subset_look)
           
           # arrange and pass to the final plot
           fin_plot <- as.ggplot(grid.arrange(rna_g, pro_g, ncol = 2))
-        } else if (input$om_type == "Only RNA"){
+        } else if (input$om_type == "Only RNA"){ # it's an rna plot
           rna_g <- make_hm_plot(rna_map, "RNA", input$subset_look)
           
           # arrange and pass to the final plot
@@ -1640,10 +1722,11 @@ server <- function(input, output, session) {
           fin_plot <- as.ggplot(grid.arrange(rna_g, pro_g, ncol = 2))
         }
         
-        # for the text below it, we put stats
+        # for the text below it, we put total genes
         text_rna <- paste0("<b>Total Genes, RNA:</b> ",nrow(fin_sub_rna),"<br>")
         text_pro <- paste0("<b>Total Genes, Protein:</b> ",nrow(fin_sub_pro),"<br>")
         
+        # text to display based on the omics type
         mid_text <- 
           if (grepl("Both", input$om_type)){
             paste0(text_rna,"<br>",text_pro)
@@ -1653,8 +1736,8 @@ server <- function(input, output, session) {
             text_pro
           }
         
+        # output the final text
         fin_text <- HTML(paste0(mid_text))
-        
       }
       
       # Parameter Density Graph (PDG) ----
@@ -1667,13 +1750,14 @@ server <- function(input, output, session) {
         coeff_sub_rna <- coeff_sub_rna[!is.na(coeff_sub_rna)]
         coeff_sub_pro <- coeff_sub_pro[!is.na(coeff_sub_pro)]
         
-        # make a plot
+        # the data frame with the coefficients
         gg.df <- data.frame(
           "dens" = c(coeff_sub_rna,coeff_sub_pro),
           "label" = c(rep("RNA", length(coeff_sub_rna)), rep("Protein",length(coeff_sub_pro))),
           stringsAsFactors = F
         )
         
+        # options to make the plot look pretty
         opts <- list(
           geom_density(alpha = .3),
           theme_bw(),
@@ -1691,8 +1775,9 @@ server <- function(input, output, session) {
           ylab("Density")
         )
         
-        
+        # how to display the plot based on which omics type to view
         if (input$om_type == "Both, Overlaid"){
+          # plot densities of both omics types on the same plot
           fin_plot <- 
             if (length(coeff_sub_rna) > 1 & length(coeff_sub_pro) > 1){
               ggplot(gg.df, aes(dens, fill = label, color = label))+
@@ -1702,6 +1787,7 @@ server <- function(input, output, session) {
               ggplot()+theme_bw()
             }
         } else {
+          # plot rna and protein densities separately
           p_rna <- 
             if (length(coeff_sub_rna) > 1){
               ggplot(gg.df[gg.df$label == "RNA",], aes(dens, fill = label, color = label))+
@@ -1717,6 +1803,7 @@ server <- function(input, output, session) {
               ggplot()+theme_bw()
             }
           
+          # arrange final plot based on what omics type to view
           fin_plot <- 
             if (input$om_type == "Both, Side-by-Side"){
               as.ggplot(grid.arrange(p_rna + opts, p_pro + opts, ncol = 2))
@@ -1726,10 +1813,11 @@ server <- function(input, output, session) {
               p_pro + opts
             }
         }
-        # for the text below it, we put stats
+        # for the text below it, we put stats based on the quantile info
         text_rna <- paste0("<b>RNA Distribution (Total Genes: ",length(coeff_sub_rna),"):</b><br>")
         text_pro <- paste0("<b>Protein Distribution (Total Genes: ",length(coeff_sub_pro),"):</b><br>")
         
+        # if there are any parameters for rna, we can get the summary
         if (length(coeff_sub_rna) > 0){
           sumy_rna <- summary(coeff_sub_rna)
           
@@ -1743,7 +1831,7 @@ server <- function(input, output, session) {
             "<b>- Max: </b>", sumy_rna[6],"<br>"
           )
         }
-        
+        # if there are any parameters for protein, we can get the summary
         if (length(coeff_sub_pro) > 0){
           sumy_pro <- summary(coeff_sub_pro)
           
@@ -1758,6 +1846,7 @@ server <- function(input, output, session) {
           )
         }
         
+        # arrange text based on omics type plotted
         mid_text <- 
           if (grepl("Both", input$om_type)){
             paste0(text_rna,"<br>",text_pro)
@@ -1767,6 +1856,7 @@ server <- function(input, output, session) {
             text_pro
           }
         
+        # add title to final text
         fin_text <- HTML(paste0("<b><u>", input$coeff, ":</b></u><br><br>", mid_text))
         
       }
@@ -1802,7 +1892,7 @@ server <- function(input, output, session) {
         fin_sub_pro[(length(pro_focus)+1):(length(pro_focus)+sum(!rna_focus %in% in_both)),"Gene_Name"] <- rna_focus[!rna_focus %in% in_both]
       }
       
-      # now ordering
+      # now ordering based on the "dominant" comparison
       ord <- 
         if (input$focus_ord == "RNA"){
           order_heat_map_comparison(fin_sub_rna, "RNA")
@@ -1816,13 +1906,14 @@ server <- function(input, output, session) {
       rna_map <- make_hm_matrix(rna_sub, ord_rna, num_reps, input$heat_subset_rep, timen)
       pro_map <- make_hm_matrix(pro_sub, ord_pro, num_reps, input$heat_subset_rep, timen)
       
-      # this always shows both overlaid
+      # this always shows both side by side
       rna_g <- make_hm_plot(rna_map, "RNA", "Comparison", T, fin_sub_rna$Gene_Name[ord_rna])
       pro_g <- make_hm_plot(pro_map, "Protein", "Comparison", T, fin_sub_pro$Gene_Name[ord_pro])
       
       # arrange and pass to the final plot
       fin_plot <- as.ggplot(grid.arrange(rna_g, pro_g, ncol = 2))
       
+      # text below is a list of genes in a venn diagram of the subsets
       fin_text <- HTML(
         paste0(
           "<b>Genes Appearing in Both: </b>", paste(in_both, collapse = " "), "<br>",
@@ -1832,13 +1923,16 @@ server <- function(input, output, session) {
       )
     }
     
+    # change the plot size, if specified as a number
     output$plot_ui <- renderUI({
+      # width
       if (input$viz_wid == "" | grepl("\\D", input$viz_wid)){
         wid <- "100%"
       } else {
         wid <- paste0(input$viz_wid,"px")
       }
       
+      # height
       if (input$viz_height == "" | grepl("\\D", input$viz_height)){
         height <- "800px"
       } else {
@@ -1853,6 +1947,7 @@ server <- function(input, output, session) {
       fin_plot
     })
     
+    # render final visualization text
     output$viz_text <- renderUI({
       fin_text
     })
