@@ -9,7 +9,7 @@ rm(list=ls())
 
 # version information ----
 
-vers_mosaic <- "0.2.1"
+vers_mosaic <- "0.2.2"
 
 # load libraries and outside functions ----
 
@@ -663,7 +663,7 @@ server <- function(input, output, session) {
 
   output$Help_file_rna=renderUI({ # csv help
     if(input$rna_file_help%%2){
-      helpText("This RNA data must be in a .csv file with the following format: first row is column labels, first column has gene labels/names (which correspond exactly to names in the Protein file), and all other columns have expression data. This expression data must be ordered by time point then by replicate, and must have evenly spaced time points. Any missing data must have cells left blank.")
+      helpText("This RNA data must be in a .csv file with the following format: first row is column labels, first column has gene labels/names (which correspond exactly to names in the Protein file), and all other columns have expression data. This expression data must be ordered by time point then by replicate, and must have evenly spaced time points. Any missing data must have cells left blank. RNA with no matching protein will not be run.")
     }
     else{
       return()
@@ -672,7 +672,7 @@ server <- function(input, output, session) {
 
   output$Help_file_pro=renderUI({ # csv help
     if(input$pro_file_help%%2){
-      helpText("This Protein data must be in a .csv file with the following format: first row is column labels, first column has gene labels/names (which correspond exactly to names in the RNA file), and all other columns have expression data. This expression data must be ordered by time point then by replicate, and must have evenly spaced time points. Any missing data must have cells left blank.")
+      helpText("This Protein data must be in a .csv file with the following format: first row is column labels, first column has gene labels/names (which correspond exactly to names in the RNA file), and all other columns have expression data. This expression data must be ordered by time point then by replicate, and must have evenly spaced time points. Any missing data must have cells left blank. Protein with no matching RNA will not be run.")
     }
     else{
       return()
