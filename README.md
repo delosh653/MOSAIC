@@ -112,6 +112,12 @@ Rensselaer Polytechnic Institute
 
 ---
 
+**Q:** Some of my genes/proteins are not showing up in the MOSAIC results! Why?
+
+**A:** Genes and proteins must be named *exactly* the same in each dataset to use this method. If your gene does not have a matching protein, or vice versa, it will not be run and will be automatically removed from the results.
+
+---
+
 **Q:** My data has starting points/ending points/resolution of less than an hour, or a fractional amount of hours! How do I run this through MOSAIC?
 
 **A:** If you have resolution of less than an hour, please enter the fraction into the box, in the form: numerator/denominator. For example, if my resolution was every 10 minutes (or 6 times every hour), I would enter: 1/6. This fractional form extends to starting and ending points as well. You must enter the fraction, NOT a mixed number. For example, if my starting time was 16 hours, 10 minutes, my starting time would be: 97/6. (This stems from the following calculation: (1/6 x 16) + (1/6))
