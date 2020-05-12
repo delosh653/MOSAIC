@@ -9,7 +9,7 @@ rm(list=ls())
 
 # version information ----
 
-vers_mosaic <- "0.2.2"
+vers_mosaic <- "0.2.3"
 
 # load libraries and outside functions ----
 
@@ -1201,19 +1201,19 @@ server <- function(input, output, session) {
     if (input$start_range != ""){
       strt <- as.numeric(sapply(input$start_range, function(x) eval(parse(text=x))))
       criteria_start_rna <- final_df[,"Period_RNA"] >= strt
-      crtieria_start_rna[is.na(criteria_start_rna)] <- T
+      criteria_start_rna[is.na(criteria_start_rna)] <- T
 
       criteria_start_pro <- final_df[,"Period_Protein"] >= strt
-      crtieria_start_pro[is.na(criteria_start_pro)] <- T
+      criteria_start_pro[is.na(criteria_start_pro)] <- T
     }
 
     if (input$end_range != ""){
       en <- as.numeric(sapply(input$end_range, function(x) eval(parse(text=x))))
       criteria_end_rna <- final_df[,"Period_RNA"] >= en
-      crtieria_end_rna[is.na(criteria_end_rna)] <- T
+      criteria_end_rna[is.na(criteria_end_rna)] <- T
 
       criteria_end_pro <- final_df[,"Period_Protein"] >= en
-      crtieria_end_pro[is.na(criteria_end_pro)] <- T
+      criteria_end_pro[is.na(criteria_end_pro)] <- T
     }
 
     # Gene List Creation ----
