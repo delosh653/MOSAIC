@@ -13,6 +13,8 @@ This is the third step in the PAICE (Pipeline for Amplitude Integration of Circa
 * Overview
 * Use and First-Time Set-Up Instructions
 * MOSAIC Features
+* MOSAIC R Package
+* Minimum Version Information
 * Contact Information and Bug Reporting
 * FAQ
 
@@ -62,7 +64,7 @@ This will install these packages (a set of functions that this application uses)
 
 ** Why do I have to install either Firefox or Chrome, you ask? Why not Internet Explorer, or some other browser? Well, it is known there are problems downloading files when viewing shiny apps in Internet Explorer, so we definitely want to avoid that. However, I have not tested this app in browsers like Microsoft Edge, Safari, etc. If you can verify that these work, please let me know at delosh@rpi.edu.
 
-## ECHO Features
+## MOSAIC Features
 
 MOSAIC's interface is divided into two sections: **Finding Trends** and **Visualizing Results**.
 
@@ -74,11 +76,46 @@ In the **Visualizing Results** tab, simply upload the .RData file from your resu
 <img src="MOSAIC App/www/MOSAIC_Gene_Expression_Plot.png" width="200" /> <img src="MOSAIC App/www/MOSAIC_Summary_Viz.png" width="250" /> <img src="MOSAIC App/www/MOSAIC_Parameter_Density_Plot.png" width="200" /> <img src="MOSAIC App/www/MOSAIC_Heat_Map.png" width="250" /> <img src="MOSAIC App/www/MOSAIC_Heat_Map_Comparison.png" width="250" />
 </p>
 
+## MOSAIC R Package
+
+MOSAIC's methodology is now available as an R package on CRAN! To download and use MOSAIC as a package, enter the following in the R console:
+
+```r
+install.packages("mosaic.find")
+library(mosaic.find)
+```
+
+With this, you then have access to finding rhythms in data with one function, mosaic_find(). For more information on how to use this package and its functionality, check out the [mosaic.find vignette](https://cran.r-project.org/web/packages/mosaic.find/vignettes/mosaic-vignette.html).
+
+Note that using this package requires knowledge of coding in R. If you having no coding knowledge, we recommend that you download and use the app as directed above. Also note that this version of MOSAIC does not take advantage of parallelism that the MOSAIC app does and therefore takes longer to run (only using one core, rather than using all cores except one). Further, there is no console output to show a progress bar of how long the output will take. If you would prefer built in parallelism and a progress bar, we highly recommend that you use the app. However, we have thought of several workarounds -- if interested, feel free to contact us with the "Feedback" form below.
+
+## Minimum Version Information
+
+Minimum versions for packages and sytems used in ECHO are the following:
+
+| Package        | Minimum Version |
+| -------------: |-------------|
+| R | >= 3.5.1 |
+| rstudioapi | >= 0.8|
+| shiny | >= 1.3.2 |
+| ggplot2 | >= 3.1.0 |
+| VennDiagram | >= 1.6.20 |
+| reshape2 | >= 1.4.3 |
+| minpack.lm | >= 1.2-1|
+| doParallel | >= 1.0.14|
+| foreach | >= 1.4.4|
+| interators | >= 1.0.10|
+| doSNOW | >= 1.0.16|
+| colorRamps | >= 2.3|
+| dplyr | >= 0.8.3|
+| ggplotify | >= 0.0.4|
+| gridExtra | >= 2.3|
+
 ## Contact Information and Bug Reporting
 
-As you may have noticed, this is still in beta testing! Therefore, we would love to hear your feedback on the program. For general feedback, email delosh@rpi.edu with the subject line "MOSAIC Feedback".
+As you may have noticed, this is still in beta testing! Therefore, we would love to hear your feedback on the program. For general feedback, email hurlej2@rpi.edu with the subject line "MOSAIC Feedback".
 
-If you run into any errors, please email delosh@rpi.edu with the following (subject line: "MOSAIC Error"): 
+If you run into any errors, please email hurlej2@rpi.edu with the following (subject line: "MOSAIC Error"): 
 - a short desciption of your problem
 - MOSAIC version number 
 - your dataset/file(s) (this may be a sample of at least 50% of the data)
@@ -88,8 +125,8 @@ If you run into any errors, please email delosh@rpi.edu with the following (subj
 However, *please* read the FAQ below before sending error reports.
 
 Contact:
-Hannah De los Santos /
-email: delosh@rpi.edu /
+Jennifer Hurley /
+email: hurlej2@rpi.edu /
 Rensselaer Polytechnic Institute
 
 ## FAQ
@@ -121,3 +158,34 @@ Rensselaer Polytechnic Institute
 **Q:** My data has starting points/ending points/resolution of less than an hour, or a fractional amount of hours! How do I run this through MOSAIC?
 
 **A:** If you have resolution of less than an hour, please enter the fraction into the box, in the form: numerator/denominator. For example, if my resolution was every 10 minutes (or 6 times every hour), I would enter: 1/6. This fractional form extends to starting and ending points as well. You must enter the fraction, NOT a mixed number. For example, if my starting time was 16 hours, 10 minutes, my starting time would be: 97/6. (This stems from the following calculation: (6/6 x 16) + (1/6))
+
+---
+
+**Q:** I was running MOSAIC, and it suddenly went grey! What happened?
+
+**A:** There was an error, the cause of which can be found in the console. Check through the FAQ to see if it has been addressed, or if it's an obvious error (such as not loading any data).
+
+---
+
+**Q:** I get the following error (or similar) when I try to view a Gene List in the Visualizations part of MOSAIC:
+
+```r
+DataTables warning: table id=DataTables_Table_0 - Requested unknown parameter '8' for row 0.
+  For more information about this error, please see http://datatables.net/tn/4
+```
+
+**A:** This is a [bug](https://community.rstudio.com/t/data-table-issue-while-rendering-the-shiny-page-datatables-warning-table-id-datatables-table-0-requested-unknown-parameter/44016/3) with Data Tables in Shiny 1.4. To check your version of Shiny, enter the following in the console:
+```r
+packageVersion("shiny")
+```
+This should give you the Shiny version. If you have version 1.4, a quick fix is the following:
+
+1. Open MOSAIC's mosaic_app.R file in RStudio.
+2. Enter `install.packages("DT")` in the console, which will install the DT package.
+3. Add `library(DT)` at the top of the mosaic_app.R script, on its own line.
+4. Press ctrl/cmd+F, which will open the find and replace tool at the top of the script.
+5. In the left box, which is the "find" box, enter `dataTableOutput`. In the right box, which is the "replace" box, enter `DT::dataTableOutput`. Then click the rightmost button, which says `All`.
+6. After you have done step 3, in the left box, which is the "find" box, enter `renderDataTable`. In the right box, which is the "replace" box, enter `DT::renderDataTable`. Then click the rightmost button, which says `All`.
+7. Press ctrl/cmd+S, which saves the mosaic_app.R file.
+
+After you've completed all these steps, the problem should be fixed when you run it again!
