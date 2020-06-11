@@ -13,6 +13,7 @@ This is the third step in the PAICE (Pipeline for Amplitude Integration of Circa
 * Overview
 * Use and First-Time Set-Up Instructions
 * MOSAIC Features
+* Data Format Example
 * MOSAIC R Package
 * Minimum Version Information
 * Contact Information and Bug Reporting
@@ -76,6 +77,27 @@ In the **Visualizing Results** tab, simply upload the .RData file from your resu
 <img src="MOSAIC App/www/MOSAIC_Gene_Expression_Plot.png" width="200" /> <img src="MOSAIC App/www/MOSAIC_Summary_Viz.png" width="250" /> <img src="MOSAIC App/www/MOSAIC_Parameter_Density_Plot.png" width="200" /> <img src="MOSAIC App/www/MOSAIC_Heat_Map.png" width="250" /> <img src="MOSAIC App/www/MOSAIC_Heat_Map_Comparison.png" width="250" />
 </p>
 
+## Data Format Example
+
+RNA and protein data should be .csvs (comma-separated values) with the first column being the expression names/labels, and the rest being numeric columns with expression data, ordered by time point, then by replicate. Missing data should be left blank. Expression names/labels should match *extactly* between corresponding RNA and protein expressions. Names/labels not found in either dataset will not be run. An example of this formatting is the following:
+
+| RNA.Name |	TP2.1 | 	TP2.2| 	TP2.3	| TP4.1| 	TP4.2| 	TP4.3| 
+| ------------- |-------------|-------------|-------------|-------------|-------------|-------------|
+| Sample 1 |	1.633117905| 	| 	1.513810213| 	1.309553546 | 	1.302488129| 	|	
+| Sample 2 | 	-0.630319173| 	| 	-0.510500938| 	| 	-0.543457041| 	-0.448383157|		
+| Sample 3	| -0.780221402| 	| 	| 	0.178429468| 	0.306513019| 	1.376226634|
+
+| Protein.Name |	TP2.1 | 	TP2.2| 	TP2.3	| TP4.1| 	TP4.2| 	TP4.3| 
+| ------------- |-------------|-------------|-------------|-------------|-------------|-------------|
+| Sample 1 |	0.465992299	| 		| 	| 		-0.037081559| 		-0.076233835 |-0.076233835 |
+| Sample 2 |0.702637217	| 	0.640581226	| 	| 		1.719945272| 			 | 1.775870204|
+| Sample 3	|	| 	0.885876804| 		| 		0.971783339| 		0.93201731 |0.93201731|
+
+In this example, this is two hour resolution data taken from 2 to 4 hours, with three replicates, from 3 corresponding genes/proteins (as denoted by the same names). In RNA, the second replicate at time point 2 is entirely missing, and in protein the third replicate at time point 2 is missing. Each expression in RNA and protein has additional missing data at various time points and replicates.
+
+Larger example datasets can be found in the folder you downloaded with MOSAIC, called "mosaic_example_data_rna.csv" and "mosaic_example_data_protein.csv", respectively. If you have unevenly sampled data, choose the smallest resolution and leave all missing column samples blank.
+
+
 ## MOSAIC R Package
 
 MOSAIC's methodology is now available as an R package on CRAN! To download and use MOSAIC as a package, enter the following in the R console:
@@ -122,7 +144,7 @@ If you run into any errors, please email hurlej2@rpi.edu with the following (sub
 - your exact settings for the run (a screenshot will do) 
 - your exact error from the console window (a screenshot will do)
 
-However, *please* read the FAQ below before sending error reports.
+However, *please* read the FAQ below and all given information (including instructions in the app, example data, etc.) before sending error reports.
 
 Contact:
 Jennifer Hurley /
