@@ -9,7 +9,7 @@ rm(list=ls())
 
 # version information ----
 
-vers_mosaic <- "0.2.3"
+vers_mosaic <- "0.2.4"
 
 # load libraries and outside functions ----
 
@@ -585,7 +585,7 @@ ui <- navbarPage(
 
         br(),
         # action buttons for visualization and downloading results
-        actionButton("go","Update Visuzalization"),
+        actionButton("go","Update Visualization"),
         hr(),
         downloadButton('downloadPlot', 'Download Plot')
       ),
@@ -681,7 +681,7 @@ server <- function(input, output, session) {
 
   output$Help_time=renderUI({ # time inputs help
     if(input$time_help%%2){
-      helpText("These numbers indicate the beginning, end, and resolution (difference between time points) of the time points in your data (in hours). For example, data that begins at 2 hours, ends at 48 hours, with a resolution of 2 hours. If your data has points in a fractional amount of hours, please enter the fraction into the box, in the form: numerator/denominator.")
+      helpText("These numbers indicate the beginning, end, and resolution (difference between time points) of the time points in your data (in hours). For example, data that begins at 2 hours, ends at 48 hours, with a resolution of 2 hours. If your data has points in a fractional amount of hours, please enter the fraction into the box, in the form: numerator/denominator. Note that MOSAIC is not recommended for 6 hour+ resolutions with only one replicate, as this results in high false discovery rates. At least 2 replicates for 6 hour+ resolutions are recommended.")
     }
     else{
       return()
