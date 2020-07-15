@@ -79,7 +79,7 @@ In the **Visualizing Results** tab, simply upload the .RData file from your resu
 
 ## Data Format Example
 
-RNA and protein data should be .csvs (comma-separated values) with the first column being the expression names/labels, and the rest being numeric columns with expression data, ordered by time point, then by replicate. Missing data should be left blank. Expression names/labels should match *extactly* between corresponding RNA and protein expressions. Names/labels not found in either dataset will not be run. An example of this formatting is the following:
+RNA and protein data should be .csvs (comma-separated values) with the first column being the expression names/labels, and the rest being numeric columns with expression data, ordered by time point, then by replicate. Missing data should be left blank. Expression names/labels should match *exactly* between corresponding RNA and protein expressions. Names/labels not found in either dataset will not be run. An example of this formatting is the following:
 
 | RNA.Name |	TP2.1 | 	TP2.2| 	TP2.3	| TP4.1| 	TP4.2| 	TP4.3| 
 | ------------- |-------------|-------------|-------------|-------------|-------------|-------------|
@@ -97,6 +97,7 @@ In this example, this is two hour resolution data taken from 2 to 4 hours, with 
 
 Larger example datasets can be found in the folder you downloaded with MOSAIC, called "mosaic_example_data_rna.csv" and "mosaic_example_data_protein.csv", respectively. If you have unevenly sampled data, choose the smallest resolution and leave all missing column samples blank.
 
+Note that MOSAIC is not recommended for 6 hour+ resolutions with only one replicate, as this results in high false discovery rates. At least 2 replicates for 6 hour+ resolutions are recommended.
 
 ## MOSAIC R Package
 
