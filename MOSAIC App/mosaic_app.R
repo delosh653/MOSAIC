@@ -426,7 +426,7 @@ ui <- navbarPage(
             "- your dataset/file(s)",tags$br(),
             "- your exact settings for the run (a screenshot will do)",tags$br(),
             "- your exact error from the console window (a screenshot will do)",tags$br(),tags$br(),
-            "All images created by ECHO using data from:",tags$br(),
+            "All images created by MOSAIC using data from:",tags$br(),
             "Hurley, J. et al. 2014. PNAS. 111 (48) 16995-17002. Analysis of clock-regulated genes in Neurospora reveals widespread posttranscriptional control of metabolic potential. doi:10.1073/pnas.1418963111 ",tags$br(),
             "Jennifer M. Hurley, Meaghan S. Jankowski, Hannah De los Santos, Alexander M. Crowell, Samuel B. Fordyce, Jeremy D. Zucker, Neeraj Kumar, Samuel O. Purvine, Errol W. Robinson, Anil Shukla, Erika Zink, William R. Cannon, Scott E. Baker, Jennifer J. Loros, Jay C. Dunlap, Circadian Proteomic Analysis Uncovers Mechanisms of Post-Transcriptional Regulation in Metabolic Pathways, Cell Systems, Volume 7, Issue 6, 2018, Pages 613-626.e5, ISSN 2405-4712, https://doi.org/10.1016/j.cels.2018.10.014.",
             tags$br(),tags$br(),
