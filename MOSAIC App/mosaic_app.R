@@ -9,7 +9,7 @@ rm(list=ls())
 
 # version information ----
 
-vers_mosaic <- "0.2.4"
+vers_mosaic <- "0.2.5"
 
 # load libraries and outside functions ----
 
@@ -233,7 +233,8 @@ make_hm_matrix <- function(dat, ord, num_reps, heat_subset_rep, timen){
   #normalize each row to be between -1 and 1
   if (length(ord) > 0){
     gene_max <- suppressWarnings(apply(abs(hm_mat), 1, function(x) max(x, na.rm = T)))
-    hm_mat <- if(gene_max != 0){ hm_mat/gene_max } else {hm_mat}
+    gene_max[gene_max == 0] <- 1
+    hm_mat <- hm_mat/gene_max
 
     #sort by phase shift
     if (nrow(hm_mat) > 1){
@@ -945,11 +946,11 @@ server <- function(input, output, session) {
       # debug
       # source("mosaic_master.R")
       # fin <- list()
-      # for (current_gene in 1:10){
+      # for (current_gene in 1:nrow(rna)){
       #   if (current_gene%%100 == 0 ){
       #     print(current_gene)
       #   }
-      #
+      # 
       #   fin[[current_gene]] <- multi_pipeline(current_gene, timen, resol, num_reps, final_df[current_gene,], genes_rna, genes_pro, avg_genes_rna, avg_genes_pro, rem_unexpr_combine, harm_cut, over_cut)
       # }
 
@@ -1306,42 +1307,50 @@ server <- function(input, output, session) {
       # visualization, above
 
       # venn diagram comparing rna and protein, only significant
-      tp1 <- as.ggplot(grid.arrange(as.ggplot(grobTree(
-        draw.pairwise.venn(area1 = sum(sig_rna),
-                           area2 = sum(sig_pro),
-                           cross.area = sum(sig_rna & sig_pro),
-                           category = c("RNA","Protein"),
-                           fill = c(rna_blue_high,pro_red_high),
-                           lty = rep("blank",2),
-                           alpha = rep(.8,2),
-                           cat.pos = c(0, 0),
-                           cat.dist=rep(.025,2),
-                           cat.fontfamily = rep("sans",2),
-                           fontfamily ="sans",
-                           cex = rep(3, 3),
-                           cat.cex = rep(3, 2),
-                           margin = .05
-                           )
-      )), top = textGrob("Significant Trends in RNA and Protein", gp=gpar(fontface="bold"))))
+      tp1 <- as.ggplot(grid.arrange(
+        (if (sum(sig_rna) != 0 | sum(sig_pro) != 0){
+          as.ggplot(grobTree(
+            draw.pairwise.venn(area1 = sum(sig_rna),
+                               area2 = sum(sig_pro),
+                               cross.area = sum(sig_rna & sig_pro),
+                               category = c("RNA","Protein"),
+                               fill = c(rna_blue_high,pro_red_high),
+                               lty = rep("blank",2),
+                               alpha = rep(.8,2),
+                               cat.pos = c(0, 0),
+                               cat.dist=rep(.025,2),
+                               cat.fontfamily = rep("sans",2),
+                               fontfamily ="sans",
+                               cex = rep(3, 3),
+                               cat.cex = rep(3, 2),
+                               margin = .05
+            )))
+        } else {
+          ggplot()+theme_bw()+ggtitle("None significant.")
+        }), top = textGrob("Significant Trends in RNA and Protein", gp=gpar(fontface="bold"))))
 
       # venn diagram comparing rna and protein, oscillatory
-      tp2 <- as.ggplot(grid.arrange(as.ggplot(grobTree(
-        draw.pairwise.venn(area1 = sum(sig_rna & osc_rna),
-                           area2 = sum(sig_pro & osc_pro),
-                           cross.area = sum(sig_rna & sig_pro & osc_rna & osc_pro),
-                           category = c("RNA","Protein"),
-                           fill = c(rna_blue_high,pro_red_high),
-                           lty = rep("blank",2),
-                           alpha = rep(.8,2),
-                           cat.pos = c(0, 0),
-                           cat.dist=rep(.025,2),
-                           cat.fontfamily = rep("sans",2),
-                           fontfamily ="sans",
-                           cex = rep(3, 3),
-                           cat.cex = rep(3, 2),
-                           margin = .05
-        )
-      )), top = textGrob("Significant Oscillatory Trends in RNA and Protein", gp=gpar(fontface="bold"))))
+      tp2 <- as.ggplot(grid.arrange(
+        (if (sum(sig_rna & osc_rna) != 0 | sum(sig_pro & osc_pro) != 0){
+          as.ggplot(grobTree(
+            draw.pairwise.venn(area1 = sum(sig_rna & osc_rna),
+                               area2 = sum(sig_pro & osc_pro),
+                               cross.area = sum(sig_rna & sig_pro & osc_rna & osc_pro),
+                               category = c("RNA","Protein"),
+                               fill = c(rna_blue_high,pro_red_high),
+                               lty = rep("blank",2),
+                               alpha = rep(.8,2),
+                               cat.pos = c(0, 0),
+                               cat.dist=rep(.025,2),
+                               cat.fontfamily = rep("sans",2),
+                               fontfamily ="sans",
+                               cex = rep(3, 3),
+                               cat.cex = rep(3, 2),
+                               margin = .05
+            )))
+        } else {
+          ggplot()+theme_bw()+ggtitle("None significant.")
+        }), top = textGrob("Significant Oscillatory Trends in RNA and Protein", gp=gpar(fontface="bold"))))
 
       # put the venn diagrams together to make the first row of the plot
       tp <- as.ggplot(grid.arrange(tp1,tp2, ncol = 2))

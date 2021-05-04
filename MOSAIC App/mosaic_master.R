@@ -494,7 +494,9 @@ calc_peaks <- function(y_val, resol, y0, timen){
       next
     }
     # otherwise continue as normal
-    if (y_val[i] == max(y_val[(i-mod):(i+mod)], na.rm = TRUE)){
+    # you need a max with friends
+    if (y_val[i] == max(y_val[(i-mod):(i+mod)], na.rm = TRUE) & 
+        !all(y_val[i] == max(y_val[(i-mod):(i+mod)]))){
       peaks[counting] <- y_val[i]
       peaks_time[counting] <- timen[i]
       counting <- counting+1
@@ -512,7 +514,8 @@ calc_peaks <- function(y_val, resol, y0, timen){
       next
     }
     # otherwise continue as normal
-    if (y_val[i] == min(y_val[(i-mod):(i+mod)], na.rm = TRUE)){
+    if (y_val[i] == min(y_val[(i-mod):(i+mod)], na.rm = TRUE) & 
+        !all(y_val[i] == min(y_val[(i-mod):(i+mod)]))){
       troughs[counting] <- y_val[i]
       troughs_time[counting] <- timen[i]
       counting <- counting+1
@@ -2684,7 +2687,12 @@ calc_param_exp <- function(current_gene, timen, resol, num_reps, genes, avg_gene
   # make it the next worst value, after the edit, so it doesn't skew the points (because log(0)=-Inf)
   y_edit[which.min(y_val)] <- abs(min(y_edit[-which.min(y_val)], na.rm = T))
   # do the fitting and assignment
-  exp_mod_coeff <- lm(log(y_edit)~timen)$coefficients
+  exp_mod_coeff <- 
+    if (all(y_edit == 0)){
+      c(0,0)
+    } else {
+      lm(log(y_edit)~timen)$coefficients
+    }
   gam_e0 <- exp_mod_coeff[2]
   a_e0 <- exp(exp_mod_coeff[1])
 
@@ -2695,7 +2703,12 @@ calc_param_exp <- function(current_gene, timen, resol, num_reps, genes, avg_gene
   # make it the next worst value, after the edit, so it doesn't skew the points (because log(0)=-Inf)
   y_edit[which.min(-y_val)] <- abs(min(y_edit[-which.min(-y_val)], na.rm = T))
   # do the fitting and assignment
-  exp_mod_coeff <- lm(log(y_edit)~timen)$coefficients
+  exp_mod_coeff <- 
+    if (all(y_edit == 0)){
+      c(0,0)
+    } else {
+      lm(log(y_edit)~timen)$coefficients
+    }
   gam_e0_neg <- exp_mod_coeff[2]
   a_e0_neg <- -exp(exp_mod_coeff[1])
   y_shift_e0_neg <- -y_shift_e0_neg
